@@ -26,6 +26,21 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         const users = client.db("shikho").collection("shikho_users");
+        app.get('/users', async (req, res) => {
+            const result = await users.find()
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.get('/role', async (req, res) => {
+            const email = req.query?.email
+            const toArray = await users.findOne({ email: email })
+            if (toArray) {
+                res.send(toArray)
+            } else {
+                res.send({})
+
+            }
+        })
         app.post('/users', async (req, res) => {
             const body = req.body
             const quary = { email: body.email }
