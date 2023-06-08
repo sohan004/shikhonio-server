@@ -26,6 +26,7 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
         const users = client.db("shikho").collection("shikho_users");
+        const classes = client.db("shikho").collection("shikho_class");
         app.get('/users', async (req, res) => {
             const result = await users.find()
             const toArray = await result.toArray()
@@ -54,6 +55,25 @@ async function run() {
             }
 
         })
+        // add leptop
+        app.post('/class', async (req, res) => {
+            const body = req.body
+            const result = await classes.insertOne(body)
+            res.send(result)
+        })
+        app.get('/class', async (req, res) => {
+            const result = classes.find()
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.get('/class/:email', async (req, res) => {
+            const email = req.params.email
+            const quary = { email: email }
+            const result = await classes.find(quary)
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        // ************************************
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
