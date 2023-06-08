@@ -68,7 +68,7 @@ async function run() {
             }
 
         })
-        // add leptop
+        
         app.post('/class', async (req, res) => {
             const body = req.body
             const result = await classes.insertOne(body)
@@ -78,6 +78,28 @@ async function run() {
             const result = classes.find()
             const toArray = await result.toArray()
             res.send(toArray)
+        })
+        app.get('/class_details/:id', async (req, res) => {
+            const id = req.params.id
+            const quary = { _id: new ObjectId(id) }
+            const result = await classes.findOne(quary)
+            if (result) {
+                res.send(result)
+            }
+            else {
+                res.send({})
+            }
+        })
+        app.put('/class_details/:id', async (req, res) => {
+            const id = req.params.id
+            const quary = { _id: new ObjectId(id) }
+            const body = req.body
+            const options = { upsert: true }
+            const updateDoc = {
+                $set: body,
+            };
+            const result = await classes.updateOne(quary, updateDoc, options)
+            res.send(result)
         })
         app.get('/class/:email', async (req, res) => {
             const email = req.params.email
