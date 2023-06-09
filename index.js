@@ -115,9 +115,22 @@ async function run() {
             const toArray = await result.toArray()
             res.send(toArray)
         })
-        app.get('/cart', async (req, res) => {
+        app.post('/carts', async (req, res) => {
             const body = req.body
             const result = await cart.insertOne(body)
+            res.send(result)
+        })
+        app.get('/carts/:email', async (req, res) => {
+            const email = req.params.email
+            const quary = { studentEmail: email }
+            const result = await cart.find(quary)
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id
+            const quary = { _id: new ObjectId(id) }
+            const result = await cart.deleteOne(quary)
             res.send(result)
         })
         // ************************************
