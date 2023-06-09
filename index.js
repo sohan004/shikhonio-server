@@ -27,6 +27,7 @@ async function run() {
         // await client.connect();
         const users = client.db("shikho").collection("shikho_users");
         const classes = client.db("shikho").collection("shikho_class");
+        const cart = client.db("shikho").collection("shikho_cart");
         app.get('/users', async (req, res) => {
             const result = await users.find()
             const toArray = await result.toArray()
@@ -68,7 +69,7 @@ async function run() {
             }
 
         })
-        
+
         app.post('/class', async (req, res) => {
             const body = req.body
             const result = await classes.insertOne(body)
@@ -76,6 +77,12 @@ async function run() {
         })
         app.get('/class', async (req, res) => {
             const result = classes.find()
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.get('/approve_class', async (req, res) => {
+            const quary = { status: 'approved' }
+            const result = await classes.find(quary)
             const toArray = await result.toArray()
             res.send(toArray)
         })
@@ -107,6 +114,11 @@ async function run() {
             const result = await classes.find(quary)
             const toArray = await result.toArray()
             res.send(toArray)
+        })
+        app.get('/cart', async (req, res) => {
+            const body = req.body
+            const result = await cart.insertOne(body)
+            res.send(result)
         })
         // ************************************
         // Send a ping to confirm a successful connection
