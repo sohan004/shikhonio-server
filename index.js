@@ -3,6 +3,7 @@ const cors = require('cors')
 const app = express()
 const port = process.env.PORT || 5000
 const dotenv = require('dotenv').config()
+const stripe = require("stripe")(`${process.env.Stripe_sk}`)
 
 
 app.use(cors())
@@ -28,22 +29,28 @@ async function run() {
         const users = client.db("shikho").collection("shikho_users");
         const classes = client.db("shikho").collection("shikho_class");
         const cart = client.db("shikho").collection("shikho_cart");
+        const pay = client.db("shikho").collection("shikho_payment");
         app.get('/users', async (req, res) => {
             const result = await users.find()
             const toArray = await result.toArray()
             res.send(toArray)
         })
-        app.patch('/users/:id', async (req, res) => {
+        app.put('/users/:id', async (req, res) => {
             const id = req.params.id
             const body = req.body
             const quary = { _id: new ObjectId(id) }
             const options = { upsert: true }
             const updateDoc = {
-                $set: {
-                    role: body.role
-                },
+                $set: body,
             };
             const result = await users.updateOne(quary, updateDoc, options);
+            res.send(result)
+        })
+        app.put('/instractor/:email', async (req, res) => {
+            const email = req.params.email
+            const quary = { email: email }
+            const options = { upsert: true }
+            const result = await users.updateOne(quary, { $inc: { enroll: 1 } }, options);
             res.send(result)
         })
         app.get('/role', async (req, res) => {
@@ -122,10 +129,33 @@ async function run() {
         })
         app.get('/carts/:email', async (req, res) => {
             const email = req.params.email
-            const quary = { studentEmail: email }
-            const result = await cart.find(quary)
+            const quary1 = { studentEmail: email }
+            const quary2 = { payment: false }
+            const result = await cart.find({ $and: [quary1, quary2] })
             const toArray = await result.toArray()
             res.send(toArray)
+        })
+        app.get('/cart/:id', async (req, res) => {
+            const id = req.params.id
+            const quary1 = { _id: new ObjectId(id) }
+            const result = await cart.findOne(quary1)
+            res.send(result)
+        })
+        app.put('/carts/:id', async (req, res) => {
+            const id = req.params.id
+            const quary1 = { _id: new ObjectId(id) }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: { payment: true }
+            };
+            const result = await cart.updateOne(quary1, updateDoc, options);
+            res.send(result)
+        })
+        app.post('/payment', async (req, res) => {
+            const body = req.body
+            const result = await pay.insertOne(body)
+            res.send(result)
+
         })
         app.delete('/carts/:id', async (req, res) => {
             const id = req.params.id
@@ -133,6 +163,20 @@ async function run() {
             const result = await cart.deleteOne(quary)
             res.send(result)
         })
+        app.post("/create-payment-intent", async (req, res) => {
+            const { price } = req.body;
+
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: +price * 100,
+                payment_method_types: ["card"],
+                currency: "usd",
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
         // ************************************
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
