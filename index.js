@@ -4,6 +4,7 @@ const app = express()
 const port = process.env.PORT || 5000
 const dotenv = require('dotenv').config()
 const stripe = require("stripe")(`${process.env.Stripe_sk}`)
+const jwt = require('jsonwebtoken');
 
 
 app.use(cors())
@@ -22,6 +23,20 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyToken = (req, res, next) => {
+    const token = req.headers?.authorization
+    if (!token) {
+        return res.status(401).send({ error: true })
+    }
+    jwt.verify(token, process.env.jwt_secret, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ error: true })
+        }
+        req.decoded = decoded
+        next()
+    });
+}
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -30,12 +45,12 @@ async function run() {
         const classes = client.db("shikho").collection("shikho_class");
         const cart = client.db("shikho").collection("shikho_cart");
         const pay = client.db("shikho").collection("shikho_payment");
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             const result = await users.find()
             const toArray = await result.toArray()
             res.send(toArray)
         })
-        app.put('/users/:id', async (req, res) => {
+        app.put('/users/:id',verifyToken, async (req, res) => {
             const id = req.params.id
             const body = req.body
             const quary = { _id: new ObjectId(id) }
@@ -46,7 +61,7 @@ async function run() {
             const result = await users.updateOne(quary, updateDoc, options);
             res.send(result)
         })
-        app.put('/instractor/:email', async (req, res) => {
+        app.put('/instractor/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const quary = { email: email }
             const options = { upsert: true }
@@ -77,12 +92,12 @@ async function run() {
 
         })
 
-        app.post('/class', async (req, res) => {
+        app.post('/class', verifyToken, async (req, res) => {
             const body = req.body
             const result = await classes.insertOne(body)
             res.send(result)
         })
-        app.get('/class', async (req, res) => {
+        app.get('/class', verifyToken, async (req, res) => {
             const result = classes.find()
             const toArray = await result.toArray()
             res.send(toArray)
@@ -104,7 +119,7 @@ async function run() {
                 res.send({})
             }
         })
-        app.put('/class_details/:id', async (req, res) => {
+        app.put('/class_details/:id', verifyToken, async (req, res) => {
             const id = req.params.id
             const quary = { _id: new ObjectId(id) }
             const body = req.body
@@ -115,22 +130,30 @@ async function run() {
             const result = await classes.updateOne(quary, updateDoc, options)
             res.send(result)
         })
-        app.get('/class/:email', async (req, res) => {
+        app.get('/class/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const quary = { email: email }
             const result = await classes.find(quary)
             const toArray = await result.toArray()
             res.send(toArray)
         })
-        app.post('/carts', async (req, res) => {
+        app.post('/carts',verifyToken,  async (req, res) => {
             const body = req.body
             const result = await cart.insertOne(body)
             res.send(result)
         })
-        app.get('/carts/:email', async (req, res) => {
+        app.get('/carts/:email', verifyToken, async (req, res) => {
             const email = req.params.email
             const quary1 = { studentEmail: email }
             const quary2 = { payment: false }
+            const result = await cart.find({ $and: [quary1, quary2] })
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.get('/enroll/:email',verifyToken, async (req, res) => {
+            const email = req.params.email
+            const quary1 = { studentEmail: email }
+            const quary2 = { payment: true }
             const result = await cart.find({ $and: [quary1, quary2] })
             const toArray = await result.toArray()
             res.send(toArray)
@@ -141,7 +164,13 @@ async function run() {
             const result = await cart.findOne(quary1)
             res.send(result)
         })
-        app.put('/carts/:id', async (req, res) => {
+        app.get('/all_instractor', async (req, res) => {
+            const quary = { role: 'instractor' }
+            const result = await users.find(quary)
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.put('/carts/:id', verifyToken, async (req, res) => {
             const id = req.params.id
             const quary1 = { _id: new ObjectId(id) }
             const options = { upsert: true };
@@ -151,19 +180,48 @@ async function run() {
             const result = await cart.updateOne(quary1, updateDoc, options);
             res.send(result)
         })
-        app.post('/payment', async (req, res) => {
+        app.post('/payment',verifyToken, async (req, res) => {
             const body = req.body
             const result = await pay.insertOne(body)
             res.send(result)
 
         })
-        app.delete('/carts/:id', async (req, res) => {
+        app.get('/payment/:email',verifyToken, async (req, res) => {
+            const email = req.params.email
+            const quary = { email: email }
+            const result = await pay.find(quary).sort({ date: -1 })
+            const toArray = await result.toArray()
+            res.send(toArray)
+
+        })
+        app.delete('/carts/:id', verifyToken, async (req, res) => {
             const id = req.params.id
             const quary = { _id: new ObjectId(id) }
             const result = await cart.deleteOne(quary)
             res.send(result)
         })
-        app.post("/create-payment-intent", async (req, res) => {
+        app.get('/populer_class',  async (req, res) => {
+            const quary = { status: 'approved' }
+            const result = await classes.find(quary).sort({ enroll: -1 }).limit(6)
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.get('/populer_instractor', async (req, res) => {
+            const quary = { role: 'instractor' }
+            const result = await users.find(quary).sort({ enroll: -1 }).limit(6)
+            const toArray = await result.toArray()
+            res.send(toArray)
+        })
+        app.post('/jwt', async (req, res) => {
+            const user = req.body
+            const token =
+                jwt.sign({
+                    data: user
+                }, process.env.jwt_secret, { expiresIn: '1h' });
+            res.send({ token })
+
+        })
+        app.post("/create-payment-intent", verifyToken, async (req, res) => {
             const { price } = req.body;
 
             // Create a PaymentIntent with the order amount and currency
